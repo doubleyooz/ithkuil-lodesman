@@ -1,9 +1,9 @@
-from firebase_admin import firestore
+from db import db_connection
 from .schemas import Translation, TranslationCreateModel, TranslationUpdateModel
 
 class TranslationService:
     def __init__(self):
-        self.collection = firestore.client().collection('translations')
+        self.collection = db_connection.get_collection('translations')
 
     async def get_all_translations(self):
         translations_ref = self.collection.stream()

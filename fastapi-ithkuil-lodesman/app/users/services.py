@@ -10,11 +10,16 @@ class UserService:
         users = [doc.to_dict() for doc in users_ref]
         return users
 
-    async def get_user_users(self, user_uid: str):
+    async def get_user_by_email(self, _email: str):
         users_ref = self.collection.where('user_uid', '==', user_uid).stream()
         users = [doc.to_dict() for doc in users_ref]
         return users
-
+    
+    async def get_book(self, book_uid: str):
+        book_ref = self.collection.document(book_uid)
+        book = book_ref.get()
+        return book.to_dict() if book.exists else None
+    
     async def create_user(self, user_data: UserCreateModel, user_id: str):
         new_user_ref = self.collection.document()
         new_user = {
