@@ -10,6 +10,7 @@ class User(BaseModel):
     name: str
     password: str
     email: str
+    token_version: int = 0
 
 
 class UserCreateModel(BaseModel):

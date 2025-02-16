@@ -1,3 +1,4 @@
+from typing import List
 from ..db import db_connection
 from .schemas import Translation, TranslationCreateModel, TranslationUpdateModel
 
@@ -6,35 +7,33 @@ class TranslationService:
     def __init__(self):
         self.collection = db_connection.get_collection("translations")
 
-    async def get_all_translations(self):
+    async def get_all_translations(self) -> List[Translation]:
         translations_ref = self.collection.stream()
         translations = [doc.to_dict() for doc in translations_ref]
         return translations
 
-    async def get_user_translations(self, user_uid: str):
-        translations_ref = self.collection.where("user_uid", "==", user_uid).stream()
+    async def get_user_translations(self, user_id: str) -> List[Translation]:
+        translations_ref = self.collection.where("user_id", "==", user_id).stream()
         translations = [doc.to_dict() for doc in translations_ref]
         return translations
 
-    async def create_book(self, book_data: TranslationCreateModel, user_id: str):
-        new_book_ref = self.collection.document()
-        new_book = {**book_data.dict(), "user_uid": user_id}
-        new_book_ref.set(new_book)
-        return new_book
+    async def create_translation(self, translation_data: TranslationCreateModel):
+        new_translation = self.collection.document().create(translation_data)
+        return new_translation
 
-    async def get_book(self, book_uid: str):
-        book_ref = self.collection.document(book_uid)
-        book = book_ref.get()
-        return book.to_dict() if book.exists else None
+    async def get_translation(self, translation_id: str) -> Translation | None:
+        translation_ref = self.collection.document(translation_id)
+        translation = translation_ref.get()
+        return translation.to_dict() if translation.exists else None
 
-    async def update_book(
-        self, book_uid: str, book_update_data: TranslationUpdateModel
+    async def update_translation(
+        self, translation_id: str, translation_update_data: TranslationUpdateModel
     ):
-        book_ref = self.collection.document(book_uid)
-        book_ref.update(book_update_data.dict(exclude_unset=True))
-        return book_ref.get().to_dict()
+        translation_ref = self.collection.document(translation_id)
+        translation_ref.update(translation_update_data.dict(exclude_unset=True))
+        return translation_ref.get().to_dict()
 
-    async def delete_book(self, book_uid: str):
-        book_ref = self.collection.document(book_uid)
-        book_ref.delete()
+    async def delete_book(self, translation_id: str):
+        translation_ref = self.collection.document(translation_id)
+        translation_ref.delete()
         return {}

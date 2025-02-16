@@ -5,7 +5,7 @@ from ..auth.services import AuthService
 from .exceptions import TranslationNotFound
 from .services import TranslationService
 
-router = APIRouter()
+router = APIRouter(prefix="/translations")
 translation_service = TranslationService()
 auth_service = AuthService()
 
@@ -17,18 +17,18 @@ async def get_all_translations():
     return translations
 
 
-@router.get("/user/{user_uid}", response_model=List[Translation])
-async def get_user_translation_submissions(user_uid: str):
-    translations = await translation_service.get_user_translations(user_uid)
+@router.get("/user/{user_id}", response_model=List[Translation])
+async def get_user_translation_submissions(user_id: str):
+    translations = await translation_service.get_user_translations(user_id)
     return translations
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Translation)
-async def create_a_translation(
+async def create_translation(
     translation_data: TranslationCreateModel,
     token_details: dict = Depends(auth_service.get_current_user),
 ):
-    user_id = token_details.get("user")["user_uid"]
+    user_id = token_details.get("user")["_id"]
     new_translation = await translation_service.create_translation(
         translation_data, user_id
     )

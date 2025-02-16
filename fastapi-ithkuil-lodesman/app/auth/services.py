@@ -20,13 +20,16 @@ from .schemas import LoginRequest, ActivateAccountRequest
 class AuthService:
     def __init__(self):
         self.userService = UserService()
+        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     async def login(self, request: LoginRequest):
         try:
             user = self.userService.get_user_by_email(request.email)
+            temp = self.verify_password(request.password, user.password)
+            print(temp)
             # Use Firebase Auth client SDK to sign in the user and get an ID token
             # Assuming you use Firebase client SDK on the frontend for authentication
-            return {"token": "idToken"}
+            return user
         except Exception as e:
             raise InvalidLogin
 
@@ -72,6 +75,12 @@ class AuthService:
         if user is None:
             raise InvalidToken
         return user
+
+    def verify_password(self, plain_password, hashed_password):
+        return self.pwd_context.verify(plain_password, hashed_password)
+
+    def get_password_hash(self, password):
+        return self.pwd_context.hash(password)
 
     async def logout(self, token: str):
         try:
