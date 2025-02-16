@@ -1,4 +1,6 @@
 fastapi
+pydantic
 uvicorn[standard]
-firebasep
-pycryptodome
+firebase_admin
+pyjwt
+passlib[bcrypt]

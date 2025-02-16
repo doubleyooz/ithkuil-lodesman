@@ -1,18 +1,24 @@
-from auth.exceptions import InvalidToken, InvalidLogin
-from db import db_connection
-from users.services import UserService
-from .schemas import LoginRequest, ActivateAccountRequest
-from datetime import datetime, timedelta
-from jose import jwt
-from app.config import ACCESS_TOKEN_EXPIRATION, ACCESS_TOKEN_SECRET, ALGORITHM
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
+
+import jwt
+from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt.exceptions import InvalidTokenError
+from passlib.context import CryptContext
+from pydantic import BaseModel
 
 # for refresh tokens
-from app.config import REFRESH_TOKEN_EXPIRATION, REFRESH_TOKEN_SECRET
+from app.config import ACCESS_TOKEN_EXPIRATION, ACCESS_TOKEN_SECRET, ALGORITHM
+
+from .exceptions import InvalidToken, InvalidLogin
+from ..db import db_connection
+from ..users.services import UserService
+from .schemas import LoginRequest, ActivateAccountRequest
 
 
 class AuthService:
     def __init__(self):
-        self.collection = db_connection.get_collection("translation")
         self.userService = UserService()
 
     async def login(self, request: LoginRequest):
@@ -30,7 +36,7 @@ class AuthService:
             request.code,
         )
 
-    def create_access_token(data: dict, expiry_time: timedelta | None = None):
+    def create_access_token(self, data: dict, expiry_time: timedelta | None = None):
         to_encode = data.copy()
         if expiry_time:
             expire = datetime.utcnow() + expiry_time
@@ -39,6 +45,33 @@ class AuthService:
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, ACCESS_TOKEN_SECRET, algorithm=ALGORITHM)
         return encoded_jwt
+
+    async def get_current_user(
+        self,
+        auth_token: Annotated[str | None, Header()] = None,
+    ):
+        """
+        Get current user's details from an authentication token
+        Args:
+            db (Session): database session
+            auth_token (str | None): authentication token
+        Returns:
+            User
+        """
+
+        if not auth_token:
+            raise InvalidToken
+        payload = await jwt.decode(
+            auth_token, ACCESS_TOKEN_SECRET, algorithms=[ALGORITHM]
+        )
+        if email is None:
+            raise InvalidToken
+        email = payload.get("email")
+
+        user = self.userService.get_user_by_email(email)
+        if user is None:
+            raise InvalidToken
+        return user
 
     async def logout(self, token: str):
         try:

@@ -1,19 +1,16 @@
 import uuid
 from datetime import date, datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, PrivateAttr
 
 
-
 class Translation(BaseModel):
-    _id: str = PrivateAttr(default_factory=lambda: str(uuid.uuid4())) 
+    _id: str = PrivateAttr(default_factory=lambda: str(uuid.uuid4()))
     title: str
     author: str
     english: str
     ithkuil: str
-  
-
 
 
 class TranslationCreateModel(BaseModel):
@@ -26,8 +23,8 @@ class TranslationCreateModel(BaseModel):
 
 
 class TranslationUpdateModel(BaseModel):
-    title: str
-    author: str
-    publisher: str
-    page_count: int
-    language: str
+    title: Optional[str]
+    author: Optional[str]
+    publisher: Optional[str]
+    page_count: Optional[int]
+    language: Optional[str]
