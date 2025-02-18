@@ -10,13 +10,14 @@ class User(BaseModel):
     name: str
     password: str
     email: str
-    token_version: int = 0
+    token_version: Optional[int]
 
 
 class UserCreateModel(BaseModel):
     name: str
     password: str
     email: str
+    token_version: int = 0
 
 
 class UserUpdateModel(BaseModel):

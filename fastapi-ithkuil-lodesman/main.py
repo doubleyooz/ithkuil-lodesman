@@ -1,12 +1,12 @@
-from app.translations import routes as translation_routes
-from app.auth import routes as auth_routes
-from app.users import routes as user_routes
+from app.translations import controller as translations_controller
+from app.auth import controller as auth_controller
+from app.users import controller as users_controller
 from fastapi import FastAPI
 
 app = FastAPI()
-app.include_router(translation_routes.router)
-app.include_router(auth_routes.router)
-app.include_router(user_routes.router)
+app.include_router(translations_controller.router)
+app.include_router(auth_controller.router)
+app.include_router(users_controller.router)
 
 
 @app.get("/")

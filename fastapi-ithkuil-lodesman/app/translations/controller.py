@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, status
 from typing import List
-from .schemas import Translation, TranslationCreateModel, TranslationUpdateModel
-from ..auth.services import AuthService
-from .exceptions import TranslationNotFound
-from .services import TranslationService
+from .schema import Translation, TranslationCreateModel, TranslationUpdateModel
+from ..auth.service import AuthService
+from .exception import TranslationNotFound
+from .service import TranslationService
 
 router = APIRouter(prefix="/translations")
 translation_service = TranslationService()

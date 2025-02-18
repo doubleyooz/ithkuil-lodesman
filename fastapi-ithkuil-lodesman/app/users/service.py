@@ -1,11 +1,14 @@
 from typing import List
-from .schemas import User, UserCreateModel, UserUpdateModel
+from passlib.context import CryptContext
+from .schema import User, UserCreateModel, UserUpdateModel
+from .exception import EmailAlreadyTaken, UserNotFound
 from ..db import db_connection
 
 
 class UserService:
     def __init__(self):
         self.collection = db_connection.get_collection("users")
+        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     async def get_all_users(self) -> List[User]:
         users_ref = self.collection.stream()
@@ -24,11 +27,15 @@ class UserService:
         return user.to_dict() if user.exists else None
 
     async def create_user(self, user_data: UserCreateModel) -> User:
+        existing_user_ref = self.collection.where("email", "==", user_data.email).get()
+
+        if existing_user_ref:
+            raise EmailAlreadyTaken()
         doc_ref = self.collection.document()
+        user_data.password = self.get_password_hash(user_data.password)
         doc_ref.set(user_data.model_dump())
         print("Document ID:", doc_ref.id)
         new_user = doc_ref.get().to_dict()
-
         return new_user
 
     async def update_user(
@@ -42,3 +49,6 @@ class UserService:
         user_ref = self.collection.document(user_id)
         user_ref.delete()
         return {}
+
+    def get_password_hash(self, password):
+        return self.pwd_context.hash(password)

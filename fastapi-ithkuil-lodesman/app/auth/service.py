@@ -11,10 +11,10 @@ from pydantic import BaseModel
 # for refresh tokens
 from app.config import ACCESS_TOKEN_EXPIRATION, ACCESS_TOKEN_SECRET, ALGORITHM
 
-from .exceptions import InvalidToken, InvalidLogin
+from .exception import InvalidToken, InvalidLogin
 from ..db import db_connection
-from ..users.services import UserService
-from .schemas import LoginRequest, ActivateAccountRequest
+from ..users.service import UserService
+from .schema import LoginRequest, ActivateAccountRequest
 
 
 class AuthService:
@@ -24,7 +24,7 @@ class AuthService:
 
     async def login(self, request: LoginRequest):
         try:
-            user = self.userService.get_user_by_email(request.email)
+            user = await self.userService.get_user_by_email(request.email)
             temp = self.verify_password(request.password, user.password)
             print(temp)
             # Use Firebase Auth client SDK to sign in the user and get an ID token
@@ -78,9 +78,6 @@ class AuthService:
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
-
-    def get_password_hash(self, password):
-        return self.pwd_context.hash(password)
 
     async def logout(self, token: str):
         try:

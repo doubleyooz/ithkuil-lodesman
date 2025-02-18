@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from typing import List
-from .schemas import User, UserCreateModel, UserUpdateModel
-from .exceptions import UserNotFound
-from .services import UserService
+from .schema import User, UserCreateModel, UserUpdateModel
+from .exception import EmailAlreadyTaken, UserNotFound
+from .service import UserService
 
 router = APIRouter(prefix="/users")
 user_service = UserService()
@@ -16,7 +16,6 @@ async def get_all_users():
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=User)
 async def create_user(user_data: UserCreateModel):
-
     new_user = await user_service.create_user(user_data)
     return new_user
 

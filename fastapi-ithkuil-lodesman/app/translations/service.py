@@ -1,6 +1,6 @@
 from typing import List
 from ..db import db_connection
-from .schemas import Translation, TranslationCreateModel, TranslationUpdateModel
+from .schema import Translation, TranslationCreateModel, TranslationUpdateModel
 
 
 class TranslationService:

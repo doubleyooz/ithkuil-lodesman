@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from firebase_admin import auth
-from ..users.services import UserService
-from .schemas import LoginRequest
-from .services import AuthService
+from ..users.service import UserService
+from .schema import LoginRequest
+from .service import AuthService
 
 router = APIRouter()
 
@@ -14,7 +14,7 @@ auth_service = AuthService()
 @router.post("/login")
 async def login(request: LoginRequest):
     try:
-        user = auth_service.login(request)
+        user = await auth_service.login(request)
         token = auth_service.create_access_token(
             {"email": user.email, "token_version": user.token_version}
         )
