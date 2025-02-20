@@ -2,10 +2,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
+import bcrypt
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
+
 from pydantic import BaseModel
 
 # for refresh tokens
@@ -20,33 +21,45 @@ from .schema import LoginRequest, ActivateAccountRequest
 class AuthService:
     def __init__(self):
         self.userService = UserService()
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     async def login(self, request: LoginRequest):
         try:
+
             user = await self.userService.get_user_by_email(request.email)
-            temp = self.verify_password(request.password, user.password)
-            print(temp)
+            if not user:
+                raise InvalidLogin
+
+            hashed_password = user["password"].encode("utf-8")
+
+            valid_credentials = self.verify_password(request.password, hashed_password)
+
+            if not valid_credentials:
+                raise InvalidLogin
             # Use Firebase Auth client SDK to sign in the user and get an ID token
             # Assuming you use Firebase client SDK on the frontend for authentication
+            del user["password"]
             return user
         except Exception as e:
+            print(e)
             raise InvalidLogin
 
-    async def verifyRecoveryCode(self, request: ActivateAccountRequest):
-        return await self.userService.verifyRecoveryCode(
+    async def verify_recovery_code(self, request: ActivateAccountRequest):
+        return await self.userService.verify_recovery_code(
             request.email,
             request.code,
         )
 
     def create_access_token(self, data: dict, expiry_time: timedelta | None = None):
+
         to_encode = data.copy()
         if expiry_time:
             expire = datetime.utcnow() + expiry_time
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRATION)
+            expire = datetime.utcnow() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRATION))
         to_encode.update({"exp": expire})
+
         encoded_jwt = jwt.encode(to_encode, ACCESS_TOKEN_SECRET, algorithm=ALGORITHM)
+
         return encoded_jwt
 
     async def get_current_user(
@@ -77,7 +90,7 @@ class AuthService:
         return user
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password)
 
     async def logout(self, token: str):
         try:

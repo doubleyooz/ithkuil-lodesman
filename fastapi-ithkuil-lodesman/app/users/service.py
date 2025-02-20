@@ -1,5 +1,5 @@
 from typing import List
-from passlib.context import CryptContext
+import bcrypt
 from .schema import User, UserCreateModel, UserUpdateModel
 from .exception import EmailAlreadyTaken, UserNotFound
 from ..db import db_connection
@@ -8,7 +8,6 @@ from ..db import db_connection
 class UserService:
     def __init__(self):
         self.collection = db_connection.get_collection("users")
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     async def get_all_users(self) -> List[User]:
         users_ref = self.collection.stream()
@@ -18,8 +17,9 @@ class UserService:
     async def get_user_by_email(self, _email: str) -> User | None:
         users_ref = self.collection.where("email", "==", _email).stream()
         user = [doc.to_dict() for doc in users_ref]
-
-        return user
+        if user:
+            return user[0]
+        return None
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         users_ref = self.collection.where("_id", "==", user_id).stream()
@@ -32,7 +32,8 @@ class UserService:
         if existing_user_ref:
             raise EmailAlreadyTaken()
         doc_ref = self.collection.document()
-        user_data.password = self.get_password_hash(user_data.password)
+        user_data.password = bcrypt.hashpw(user_data.password, bcrypt.gensalt())
+
         doc_ref.set(user_data.model_dump())
         print("Document ID:", doc_ref.id)
         new_user = doc_ref.get().to_dict()
@@ -49,6 +50,3 @@ class UserService:
         user_ref = self.collection.document(user_id)
         user_ref.delete()
         return {}
-
-    def get_password_hash(self, password):
-        return self.pwd_context.hash(password)
