@@ -1,5 +1,5 @@
 from typing import List
-import bcrypt
+from firebase_admin import auth, credentials
 from .schema import User, UserCreateModel, UserUpdateModel
 from .exception import EmailAlreadyTaken, UserNotFound
 from ..db import db_connection
@@ -14,11 +14,11 @@ class UserService:
         users = [doc.to_dict() for doc in users_ref]
         return users
 
-    async def get_user_by_email(self, _email: str) -> User | None:
-        users_ref = self.collection.where("email", "==", _email).stream()
-        user = [doc.to_dict() for doc in users_ref]
-        if user:
-            return user[0]
+    async def get_user_by_email(self, email: str) -> User | None:
+        users_ref = self.collection.where("email", "==", email).limit(1).stream()
+        user_doc = next(users_ref, None)
+        if user_doc:
+            return user_doc.to_dict()
         return None
 
     async def get_user_by_id(self, user_id: str) -> User | None:
@@ -27,17 +27,20 @@ class UserService:
         return user.to_dict() if user.exists else None
 
     async def create_user(self, user_data: UserCreateModel) -> User:
-        existing_user_ref = self.collection.where("email", "==", user_data.email).get()
 
-        if existing_user_ref:
-            raise EmailAlreadyTaken()
-        doc_ref = self.collection.document()
-        user_data.password = bcrypt.hashpw(user_data.password, bcrypt.gensalt())
+        # Create the user in Firebase Authentication
+        user_record = auth.create_user(
+            email=user_data.email,
+            password=user_data.password,
+            display_name=user_data.name,
+        )
 
-        doc_ref.set(user_data.model_dump())
-        print("Document ID:", doc_ref.id)
-        new_user = doc_ref.get().to_dict()
-        return new_user
+        # Return the user record
+        return {
+            "uid": user_record.uid,
+            "email": user_record.email,
+            "name": user_record.display_name,
+        }
 
     async def update_user(
         self, user_id: str, user_update_data: UserUpdateModel

@@ -1,16 +1,13 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated
-
-import jwt
-import bcrypt
-from fastapi import Depends, FastAPI, Header, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jwt.exceptions import InvalidTokenError
-
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
+from firebase_admin import auth, credentials
+import httpx
 
 # for refresh tokens
-from app.config import ACCESS_TOKEN_EXPIRATION, ACCESS_TOKEN_SECRET, ALGORITHM
+from app.config import API_KEY, ACCESS_TOKEN_SECRET, ALGORITHM
 
 from .exception import InvalidToken, InvalidLogin
 from ..db import db_connection
@@ -22,75 +19,49 @@ class AuthService:
     def __init__(self):
         self.userService = UserService()
 
-    async def login(self, request: LoginRequest):
-        try:
+    async def sign_in_with_email_and_password(self, email: str, password: str):
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}"
+        payload = {
+            "email": email,
+            "password": password,
+            "returnSecureToken": True,
+        }
+        print("before response")
 
-            user = await self.userService.get_user_by_email(request.email)
-            if not user:
-                raise InvalidLogin
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload)
+            print("after response")
 
-            hashed_password = user["password"].encode("utf-8")
-
-            valid_credentials = self.verify_password(request.password, hashed_password)
-
-            if not valid_credentials:
-                raise InvalidLogin
-            # Use Firebase Auth client SDK to sign in the user and get an ID token
-            # Assuming you use Firebase client SDK on the frontend for authentication
-            del user["password"]
-            return user
-        except Exception as e:
-            print(e)
-            raise InvalidLogin
-
-    async def verify_recovery_code(self, request: ActivateAccountRequest):
-        return await self.userService.verify_recovery_code(
-            request.email,
-            request.code,
-        )
-
-    def create_access_token(self, data: dict, expiry_time: timedelta | None = None):
-
-        to_encode = data.copy()
-        if expiry_time:
-            expire = datetime.utcnow() + expiry_time
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRATION))
-        to_encode.update({"exp": expire})
-
-        encoded_jwt = jwt.encode(to_encode, ACCESS_TOKEN_SECRET, algorithm=ALGORITHM)
-
-        return encoded_jwt
+            if response.status_code == 200:
+                return response.json()  # This is a JSON-serializable dict
+            else:
+                error_message = (
+                    response.json().get("error", {}).get("message", "Unknown error")
+                )
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to sign in: {error_message}",
+                )
 
     async def get_current_user(
         self,
-        auth_token: Annotated[str | None, Header()] = None,
+        credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     ):
-        """
-        Get current user's details from an authentication token
-        Args:
-            db (Session): database session
-            auth_token (str | None): authentication token
-        Returns:
-            User
-        """
+        try:
 
-        if not auth_token:
-            raise InvalidToken
-        payload = await jwt.decode(
-            auth_token, ACCESS_TOKEN_SECRET, algorithms=[ALGORITHM]
-        )
-        if email is None:
-            raise InvalidToken
-        email = payload.get("email")
+            decoded_token = auth.verify_id_token(credentials.credentials)
+            user = auth.get_user(decoded_token["uid"])
+            if user.tokens_valid_after_timestamp > decoded_token["iat"]:
+                raise HTTPException(status_code=401, detail="Token revoked")
 
-        user = self.userService.get_user_by_email(email)
-        if user is None:
-            raise InvalidToken
-        return user
-
-    def verify_password(self, plain_password, hashed_password):
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password)
+            return decoded_token
+        except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     async def logout(self, token: str):
         try:
@@ -99,3 +70,9 @@ class AuthService:
             return {"message": "User logged out successfully"}
         except Exception as e:
             raise InvalidToken
+
+    async def verify_recovery_code(self, request: ActivateAccountRequest):
+        return await self.userService.verify_recovery_code(
+            request.email,
+            request.code,
+        )

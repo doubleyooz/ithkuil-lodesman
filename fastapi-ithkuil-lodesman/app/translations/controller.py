@@ -23,12 +23,17 @@ async def get_user_translation_submissions(user_id: str):
     return translations
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=Translation)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    response_model=Translation,
+)
 async def create_translation(
     translation_data: TranslationCreateModel,
-    token_details: dict = Depends(auth_service.get_current_user),
+    current_user: dict = Depends(auth_service.get_current_user),
 ):
-    user_id = token_details.get("user")["_id"]
+    print("current_user", current_user)
+    user_id = current_user.get("user")["_id"]
     new_translation = await translation_service.create_translation(
         translation_data, user_id
     )
@@ -46,7 +51,9 @@ async def get_translation(translation_uid: str):
 
 @router.patch("/{translation_uid}", response_model=Translation)
 async def update_translation(
-    translation_uid: str, translation_update_data: TranslationUpdateModel
+    translation_uid: str,
+    translation_update_data: TranslationUpdateModel,
+    current_user: dict = Depends(auth_service.get_current_user),
 ):
     updated_translation = await translation_service.update_translation(
         translation_uid, translation_update_data
@@ -58,7 +65,10 @@ async def update_translation(
 
 
 @router.delete("/{translation_uid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_translation(translation_uid: str):
+async def delete_translation(
+    translation_uid: str,
+    current_user: dict = Depends(auth_service.get_current_user),
+):
     translation_to_delete = await translation_service.delete_translation(
         translation_uid
     )

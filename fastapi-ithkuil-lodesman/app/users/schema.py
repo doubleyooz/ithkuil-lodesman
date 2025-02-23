@@ -1,25 +1,26 @@
-import uuid
-from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel
 
 
-class User(BaseModel):
-    _id: str = PrivateAttr(default_factory=lambda: str(uuid.uuid4()))
+class UserBase(BaseModel):
     name: str
-    password: str
     email: str
-    token_version: Optional[int]
 
 
 class UserCreateModel(BaseModel):
     name: str
     password: str
     email: str
-    token_version: int = 0
 
 
 class UserUpdateModel(BaseModel):
     name: Optional[str]
     email: Optional[str]
+
+
+class User(UserBase):
+    uid: str  # This will be populated after Firebase creates the user
+
+    class Config:
+        from_attributes = True  # Enable ORM mode (if needed)

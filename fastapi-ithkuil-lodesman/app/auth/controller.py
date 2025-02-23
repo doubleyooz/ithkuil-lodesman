@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import security
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from firebase_admin import auth
 from ..users.service import UserService
@@ -14,25 +16,30 @@ auth_service = AuthService()
 @router.post("/login")
 async def login(request: LoginRequest):
     try:
-        user = await auth_service.login(request)
-        print("user", user)
-        token = auth_service.create_access_token(
-            {"email": user["email"], "token_version": user["token_version"]}
+        print("request", request)
+        user = await auth_service.sign_in_with_email_and_password(
+            request.email, request.password
         )
-        print("token", token)
+        print("user", user)
+
         # Use Firebase Auth client SDK to sign in the user and get an ID token
         # Assuming you use Firebase client SDK on the frontend for authentication
 
-        return {"data": user, "access_token": token}
+        return {"data": user, "access_token": user}
     except Exception as e:
-        print(e)
+        print("e", e)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
 
 @router.post("/logout")
-async def logout(token: str):
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
     try:
+        # Extract the token from the Authorization header
+        token = credentials.credentials
 
-        return user_service.logout(token)
+        # Call the logout method with the token
+        return await auth_service.logout(token)
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token")
