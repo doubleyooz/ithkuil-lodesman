@@ -21,7 +21,16 @@ async def get_all_users():
 
 
 @router.get("/protected-route")
-async def protected_route(current_user: dict = Depends(auth_service.get_current_user)):
+async def protected_route(
+    current_user: dict = Depends(auth_service.get_current_user),
+):
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    print("Protected route accessed by user:")
+    print(current_user)
     return {"message": "You are authenticated", "user": current_user}
 
 

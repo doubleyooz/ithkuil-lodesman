@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi import security
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from firebase_admin import auth
 from ..users.service import UserService
@@ -16,24 +15,30 @@ auth_service = AuthService()
 @router.post("/login")
 async def login(request: LoginRequest):
     try:
-        print("request", request)
-        user = await auth_service.sign_in_with_email_and_password(
+        # Sign in with Firebase
+        firebase_response = await auth_service.sign_in_with_email_and_password(
             request.email, request.password
         )
-        print("user", user)
 
-        # Use Firebase Auth client SDK to sign in the user and get an ID token
-        # Assuming you use Firebase client SDK on the frontend for authentication
+        # The important tokens from Firebase response
+        id_token = firebase_response.get("idToken")
+        refresh_token = firebase_response.get("refreshToken")
 
-        return {"data": user, "access_token": user}
+        return {
+            "access_token": id_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": firebase_response.get("expiresIn"),
+        }
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        print("e", e)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
 
 @router.post("/logout")
 async def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
 ):
     try:
         # Extract the token from the Authorization header

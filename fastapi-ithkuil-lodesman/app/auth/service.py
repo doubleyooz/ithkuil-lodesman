@@ -43,25 +43,39 @@ class AuthService:
                     detail=f"Failed to sign in: {error_message}",
                 )
 
+    @classmethod
     async def get_current_user(
-        self,
+        cls,
         credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     ):
         try:
 
-            decoded_token = auth.verify_id_token(credentials.credentials)
+            token = credentials.credentials
+            decoded_token = auth.verify_id_token(token)
+
+            # Check if token was revoked
             user = auth.get_user(decoded_token["uid"])
-            if user.tokens_valid_after_timestamp > decoded_token["iat"]:
+            if (
+                user.tokens_valid_after_timestamp
+                and decoded_token["auth_time"] * 1000
+                < user.tokens_valid_after_timestamp
+            ):
                 raise HTTPException(status_code=401, detail="Token revoked")
 
             return decoded_token
-        except Exception as e:
-            print(e)
+        except ValueError:
+            # Invalid token
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
+                status_code=401, detail="Invalid authentication credentials"
             )
+        except auth.ExpiredIdTokenError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except auth.RevokedIdTokenError:
+            raise HTTPException(status_code=401, detail="Token revoked")
+        except auth.InvalidIdTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+    # dependencies.py
 
     async def logout(self, token: str):
         try:
